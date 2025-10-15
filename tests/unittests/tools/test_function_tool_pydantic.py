@@ -17,12 +17,13 @@
 from typing import Optional
 from unittest.mock import MagicMock
 
+import pydantic
+import pytest
+
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.sessions.session import Session
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.tool_context import ToolContext
-import pydantic
-import pytest
 
 
 class UserModel(pydantic.BaseModel):
@@ -280,5 +281,121 @@ async def test_run_async_with_optional_pydantic_models():
   assert result["theme"] == "dark"
   assert result["notifications"] is True
   assert result["preferences_type"] == "PreferencesModel"
-  assert result["preferences_type"] == "PreferencesModel"
-  assert result["preferences_type"] == "PreferencesModel"
+
+
+def function_with_list_of_pydantic_models(users: list[UserModel]) -> dict:
+  """Function that takes a list of Pydantic models."""
+  return {
+      "count": len(users),
+      "names": [user.name for user in users],
+      "ages": [user.age for user in users],
+      "types": [type(user).__name__ for user in users],
+  }
+
+
+def function_with_optional_list_of_pydantic_models(
+    users: Optional[list[UserModel]] = None,
+) -> dict:
+  """Function that takes an optional list of Pydantic models."""
+  if users is None:
+    return {"count": 0, "names": []}
+  return {
+      "count": len(users),
+      "names": [user.name for user in users],
+  }
+
+
+def test_preprocess_args_with_list_of_dicts_to_pydantic_models():
+  """Test _preprocess_args converts list of dicts to list of Pydantic models."""
+  tool = FunctionTool(function_with_list_of_pydantic_models)
+
+  input_args = {
+      "users": [
+          {"name": "Alice", "age": 30, "email": "alice@example.com"},
+          {"name": "Bob", "age": 25},
+          {"name": "Charlie", "age": 35, "email": "charlie@example.com"},
+      ]
+  }
+
+  processed_args = tool._preprocess_args(input_args)
+
+  # Check that the list of dicts was converted to a list of Pydantic models
+  assert "users" in processed_args
+  users = processed_args["users"]
+  assert isinstance(users, list)
+  assert len(users) == 3
+
+  # Check each element is a Pydantic model with correct data
+  assert isinstance(users[0], UserModel)
+  assert users[0].name == "Alice"
+  assert users[0].age == 30
+  assert users[0].email == "alice@example.com"
+
+  assert isinstance(users[1], UserModel)
+  assert users[1].name == "Bob"
+  assert users[1].age == 25
+  assert users[1].email is None
+
+  assert isinstance(users[2], UserModel)
+  assert users[2].name == "Charlie"
+  assert users[2].age == 35
+  assert users[2].email == "charlie@example.com"
+
+
+def test_preprocess_args_with_optional_list_of_pydantic_models_none():
+  """Test _preprocess_args handles None for optional list parameter."""
+  tool = FunctionTool(function_with_optional_list_of_pydantic_models)
+
+  input_args = {"users": None}
+
+  processed_args = tool._preprocess_args(input_args)
+
+  # Check that None is preserved
+  assert "users" in processed_args
+  assert processed_args["users"] is None
+
+
+def test_preprocess_args_with_optional_list_of_pydantic_models_with_data():
+  """Test _preprocess_args converts list for optional list parameter."""
+  tool = FunctionTool(function_with_optional_list_of_pydantic_models)
+
+  input_args = {
+      "users": [
+          {"name": "Alice", "age": 30},
+          {"name": "Bob", "age": 25},
+      ]
+  }
+
+  processed_args = tool._preprocess_args(input_args)
+
+  # Check conversion
+  assert "users" in processed_args
+  users = processed_args["users"]
+  assert len(users) == 2
+  assert all(isinstance(user, UserModel) for user in users)
+  assert users[0].name == "Alice"
+  assert users[1].name == "Bob"
+
+
+def test_preprocess_args_with_list_skips_invalid_items():
+  """Test _preprocess_args skips items that fail validation."""
+  tool = FunctionTool(function_with_list_of_pydantic_models)
+
+  input_args = {
+      "users": [
+          {"name": "Alice", "age": 30},
+          {"name": "Invalid"},  # Missing required 'age' field
+          {"name": "Bob", "age": 25},
+      ]
+  }
+
+  processed_args = tool._preprocess_args(input_args)
+
+  # Check that invalid item was skipped
+  assert "users" in processed_args
+  users = processed_args["users"]
+  assert len(users) == 2  # Only 2 valid items
+  assert users[0].name == "Alice"
+  assert users[0].age == 30
+  assert users[1].name == "Bob"
+  assert users[1].age == 25

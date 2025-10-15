@@ -16,16 +16,12 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Any
-from typing import Callable
-from typing import get_args
-from typing import get_origin
-from typing import Optional
-from typing import Union
+from typing import Any, Callable, Optional, Union, get_args, get_origin
 
-from google.genai import types
 import pydantic
 from typing_extensions import override
+
+from google.genai import types
 
 from ..utils.context_utils import Aclosing
 from ._automatic_function_calling_util import build_function_declaration
@@ -102,6 +98,7 @@ class FunctionTool(BaseTool):
 
     Currently handles:
     - Converting JSON dictionaries to Pydantic model instances where expected
+    - Converting lists of JSON dictionaries to lists of Pydantic model instances
 
     Future extensions could include:
     - Type coercion for other complex types
@@ -129,8 +126,36 @@ class FunctionTool(BaseTool):
           if len(non_none_types) == 1:
             target_type = non_none_types[0]
 
+        # Check if the target type is a list
+        if get_origin(target_type) is list:
+          list_args = get_args(target_type)
+          if list_args:
+            element_type = list_args[0]
+
+            # Check if the element type is a Pydantic model
+            if inspect.isclass(element_type) and issubclass(
+                element_type, pydantic.BaseModel
+            ):
+              # Skip conversion if the value is None
+              if args[param_name] is None:
+                continue
+
+              # Convert list elements to Pydantic models
+              if isinstance(args[param_name], list):
+                converted_list = []
+                for item in args[param_name]:
+                  try:
+                    converted_list.append(element_type.model_validate(item))
+                  except Exception as e:
+                    # Skip items that fail validation
+                    logger.warning(
+                        f"Skipping item in '{param_name}': "
+                        f'Failed to convert to {element_type.__name__}: {e}'
+                    )
+                converted_args[param_name] = converted_list
+
         # Check if the target type is a Pydantic model
-        if inspect.isclass(target_type) and issubclass(
+        elif inspect.isclass(target_type) and issubclass(
             target_type, pydantic.BaseModel
         ):
           # Skip conversion if the value is None and the parameter is Optional
