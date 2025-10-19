@@ -16,12 +16,16 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Any, Callable, Optional, Union, get_args, get_origin
-
-import pydantic
-from typing_extensions import override
+from typing import Any
+from typing import Callable
+from typing import get_args
+from typing import get_origin
+from typing import Optional
+from typing import Union
 
 from google.genai import types
+import pydantic
+from typing_extensions import override
 
 from ..utils.context_utils import Aclosing
 from ._automatic_function_calling_util import build_function_declaration

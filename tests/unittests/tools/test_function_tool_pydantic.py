@@ -17,13 +17,12 @@
 from typing import Optional
 from unittest.mock import MagicMock
 
-import pydantic
-import pytest
-
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.sessions.session import Session
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.tool_context import ToolContext
+import pydantic
+import pytest
 
 
 class UserModel(pydantic.BaseModel):
