@@ -32,7 +32,7 @@ from ._automatic_function_calling_util import build_function_declaration
 from .base_tool import BaseTool
 from .tool_context import ToolContext
 
-logger = logging.getLogger('google_adk.' + __name__)
+logger = logging.getLogger("google_adk." + __name__)
 
 
 class FunctionTool(BaseTool):
@@ -57,22 +57,22 @@ class FunctionTool(BaseTool):
         the callable returns True, the tool will require confirmation from the
         user.
     """
-    name = ''
-    doc = ''
+    name = ""
+    doc = ""
     # Handle different types of callables
-    if hasattr(func, '__name__'):
+    if hasattr(func, "__name__"):
       # Regular functions, unbound methods, etc.
       name = func.__name__
-    elif hasattr(func, '__class__'):
+    elif hasattr(func, "__class__"):
       # Callable objects, bound methods, etc.
       name = func.__class__.__name__
 
     # Get documentation (prioritize direct __doc__ if available)
-    if hasattr(func, '__doc__') and func.__doc__:
+    if hasattr(func, "__doc__") and func.__doc__:
       doc = inspect.cleandoc(func.__doc__)
     elif (
-        hasattr(func, '__call__')
-        and hasattr(func.__call__, '__doc__')
+        hasattr(func, "__call__")
+        and hasattr(func.__call__, "__doc__")
         and func.__call__.__doc__
     ):
       # For callable objects, try to get docstring from __call__ method
@@ -80,7 +80,7 @@ class FunctionTool(BaseTool):
 
     super().__init__(name=name, description=doc)
     self.func = func
-    self._ignore_params = ['tool_context', 'input_stream']
+    self._ignore_params = ["tool_context", "input_stream"]
     self._require_confirmation = require_confirmation
 
   @override
@@ -151,12 +151,13 @@ class FunctionTool(BaseTool):
                   try:
                     converted_list.append(element_type.model_validate(item))
                   except Exception as e:
-                    # Skip items that fail validation
                     logger.warning(
-                        f"Skipping item in '{param_name}': "
-                        f'Failed to convert to {element_type.__name__}: {e}'
+                        f"Failed to convert item in '{param_name}' to Pydantic"
+                        f" model {element_type.__name__}: {e}"
                     )
-                converted_args[param_name] = converted_list
+
+                    # Keep the original value if conversion fails
+                    converted_list.append(item)
 
         # Check if the target type is a Pydantic model
         elif inspect.isclass(target_type) and issubclass(
@@ -175,7 +176,7 @@ class FunctionTool(BaseTool):
             except Exception as e:
               logger.warning(
                   f"Failed to convert argument '{param_name}' to Pydantic model"
-                  f' {target_type.__name__}: {e}'
+                  f" model {target_type.__name__}: {e}"
               )
               # Keep the original value if conversion fails
               pass
@@ -191,8 +192,8 @@ class FunctionTool(BaseTool):
 
     signature = inspect.signature(self.func)
     valid_params = {param for param in signature.parameters}
-    if 'tool_context' in valid_params:
-      args_to_call['tool_context'] = tool_context
+    if "tool_context" in valid_params:
+      args_to_call["tool_context"] = tool_context
 
     # Filter args_to_call to only include valid parameters for the function
     args_to_call = {k: v for k, v in args_to_call.items() if k in valid_params}
@@ -208,11 +209,11 @@ class FunctionTool(BaseTool):
     ]
 
     if missing_mandatory_args:
-      missing_mandatory_args_str = '\n'.join(missing_mandatory_args)
+      missing_mandatory_args_str = "\n".join(missing_mandatory_args)
       error_str = f"""Invoking `{self.name}()` failed as the following mandatory input parameters are not present:
 {missing_mandatory_args_str}
 You could retry calling this tool, but it is IMPORTANT for you to provide all the mandatory parameters."""
-      return {'error': error_str}
+      return {"error": error_str}
 
     if isinstance(self._require_confirmation, Callable):
       require_confirmation = await self._invoke_callable(
@@ -224,24 +225,24 @@ You could retry calling this tool, but it is IMPORTANT for you to provide all th
     if require_confirmation:
       if not tool_context.tool_confirmation:
         args_to_show = args_to_call.copy()
-        if 'tool_context' in args_to_show:
-          args_to_show.pop('tool_context')
+        if "tool_context" in args_to_show:
+          args_to_show.pop("tool_context")
 
         tool_context.request_confirmation(
             hint=(
-                f'Please approve or reject the tool call {self.name}() by'
-                ' responding with a FunctionResponse with an expected'
-                ' ToolConfirmation payload.'
+                f"Please approve or reject the tool call {self.name}() by"
+                " responding with a FunctionResponse with an expected"
+                " ToolConfirmation payload."
             ),
         )
         return {
-            'error': (
-                'This tool call requires confirmation, please approve or'
-                ' reject.'
+            "error": (
+                "This tool call requires confirmation, please approve or"
+                " reject."
             )
         }
       elif not tool_context.tool_confirmation.confirmed:
-        return {'error': 'This tool call is rejected.'}
+        return {"error": "This tool call is rejected."}
 
     return await self._invoke_callable(self.func, args_to_call)
 
@@ -254,7 +255,7 @@ You could retry calling this tool, but it is IMPORTANT for you to provide all th
     # checking coroutine function is not enough. We also need to check whether
     # Callable's __call__ function is a coroutine funciton
     is_async = inspect.iscoroutinefunction(target) or (
-        hasattr(target, '__call__')
+        hasattr(target, "__call__")
         and inspect.iscoroutinefunction(target.__call__)
     )
     if is_async:
@@ -276,11 +277,11 @@ You could retry calling this tool, but it is IMPORTANT for you to provide all th
         self.name in invocation_context.active_streaming_tools
         and invocation_context.active_streaming_tools[self.name].stream
     ):
-      args_to_call['input_stream'] = invocation_context.active_streaming_tools[
+      args_to_call["input_stream"] = invocation_context.active_streaming_tools[
           self.name
       ].stream
-    if 'tool_context' in signature.parameters:
-      args_to_call['tool_context'] = tool_context
+    if "tool_context" in signature.parameters:
+      args_to_call["tool_context"] = tool_context
 
     # TODO: support tool confirmation for live mode.
     async with Aclosing(self.func(**args_to_call)) as agen:
