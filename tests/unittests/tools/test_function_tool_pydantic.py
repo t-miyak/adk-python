@@ -376,8 +376,8 @@ def test_preprocess_args_with_optional_list_of_pydantic_models_with_data():
   assert users[1].name == "Bob"
 
 
-def test_preprocess_args_with_list_skips_invalid_items():
-  """Test _preprocess_args skips items that fail validation."""
+def test_preprocess_args_with_list_keeps_invalid_items_as_original():
+  """Test _preprocess_args keeps original data for items that fail validation."""
   tool = FunctionTool(function_with_list_of_pydantic_models)
 
   input_args = {
@@ -390,11 +390,21 @@ def test_preprocess_args_with_list_skips_invalid_items():
 
   processed_args = tool._preprocess_args(input_args)
 
-  # Check that invalid item was skipped
+  # Check that all items are preserved
   assert "users" in processed_args
   users = processed_args["users"]
-  assert len(users) == 2  # Only 2 valid items
+  assert len(users) == 3  # All items preserved
+
+  # First item should be converted to UserModel
+  assert isinstance(users[0], UserModel)
   assert users[0].name == "Alice"
   assert users[0].age == 30
-  assert users[1].name == "Bob"
-  assert users[1].age == 25
+
+  # Second item should remain as dict (failed validation)
+  assert isinstance(users[1], dict)
+  assert users[1] == {"name": "Invalid"}
+
+  # Third item should be converted to UserModel
+  assert isinstance(users[2], UserModel)
+  assert users[2].name == "Bob"
+  assert users[2].age == 25
