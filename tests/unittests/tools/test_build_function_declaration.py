@@ -164,6 +164,7 @@ def test_nested_basemodel_input():
     nickname: Optional[str] = Field(
         default=None, description='Optional nickname'
     )
+    email: Optional[str] = None  # No Field annotation, Optional with default
 
   class ParentInput(BaseModel):
     title: str = Field(description='The title of the parent')
@@ -172,6 +173,7 @@ def test_nested_basemodel_input():
     optional_field: Optional[str] = Field(
         default='default_value', description='An optional field with default'
     )
+    status: Optional[str] = None  # No Field annotation, Optional with default
 
   def simple_function(input: ParentInput) -> str:
     return {'result': input}
@@ -198,6 +200,8 @@ def test_nested_basemodel_input():
       parent_props['optional_field'].description
       == 'An optional field with default'
   )
+  assert parent_props['status'].type == 'STRING'
+  assert parent_props['status'].description is None  # No Field annotation
 
   # Check ParentInput required fields
   parent_required = function_decl.parameters.properties['input'].required
@@ -205,6 +209,7 @@ def test_nested_basemodel_input():
   assert 'basic_field' in parent_required
   assert 'child' in parent_required
   assert 'optional_field' not in parent_required  # Has default value
+  assert 'status' not in parent_required  # No Field annotation, Optional with default
 
   # Check ChildInput properties with and without Field annotations
   child_props = parent_props['child'].properties
@@ -214,12 +219,15 @@ def test_nested_basemodel_input():
   assert child_props['age'].description is None  # No Field annotation
   assert child_props['nickname'].type == 'STRING'
   assert child_props['nickname'].description == 'Optional nickname'
+  assert child_props['email'].type == 'STRING'
+  assert child_props['email'].description is None  # No Field annotation
 
   # Check ChildInput required fields
   child_required = parent_props['child'].required
   assert 'name' in child_required
   assert 'age' in child_required
   assert 'nickname' not in child_required  # Optional with default None
+  assert 'email' not in child_required  # No Field annotation, Optional with default
 
 
 def test_basemodel_with_nested_basemodel():
