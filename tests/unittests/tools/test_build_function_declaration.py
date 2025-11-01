@@ -209,7 +209,9 @@ def test_nested_basemodel_input():
   assert 'basic_field' in parent_required
   assert 'child' in parent_required
   assert 'optional_field' not in parent_required  # Has default value
-  assert 'status' not in parent_required  # No Field annotation, Optional with default
+  assert (
+      'status' not in parent_required
+  )  # No Field annotation, Optional with default
 
   # Check ChildInput properties with and without Field annotations
   child_props = parent_props['child'].properties
@@ -227,7 +229,9 @@ def test_nested_basemodel_input():
   assert 'name' in child_required
   assert 'age' in child_required
   assert 'nickname' not in child_required  # Optional with default None
-  assert 'email' not in child_required  # No Field annotation, Optional with default
+  assert (
+      'email' not in child_required
+  )  # No Field annotation, Optional with default
 
 
 def test_basemodel_with_nested_basemodel():
