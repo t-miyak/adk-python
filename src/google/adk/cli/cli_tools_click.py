@@ -127,7 +127,7 @@ def conformance():
   pass
 
 
-@conformance.command("create", cls=HelpfulCommand)
+@conformance.command("record", cls=HelpfulCommand)
 @click.argument(
     "paths",
     nargs=-1,
@@ -136,7 +136,7 @@ def conformance():
     ),
 )
 @click.pass_context
-def cli_conformance_create(
+def cli_conformance_record(
     ctx,
     paths: tuple[str, ...],
 ):
@@ -156,13 +156,13 @@ def cli_conformance_create(
 
   Examples:
 
-  Use default directory: adk conformance create
+  Use default directory: adk conformance record
 
-  Custom directories: adk conformance create tests/core tests/tools
+  Custom directories: adk conformance record tests/core tests/tools
   """
 
   try:
-    from .conformance.cli_create import run_conformance_create
+    from .conformance.cli_record import run_conformance_record
   except ImportError as e:
     click.secho(
         f"Error: Missing conformance testing dependencies: {e}",
@@ -178,7 +178,7 @@ def cli_conformance_create(
 
   # Default to tests/ directory if no paths provided
   test_paths = [Path(p) for p in paths] if paths else [Path("tests").resolve()]
-  asyncio.run(run_conformance_create(test_paths))
+  asyncio.run(run_conformance_record(test_paths))
 
 
 @conformance.command("test", cls=HelpfulCommand)
@@ -448,6 +448,12 @@ def eval_options():
         ),
         default=None,
     )
+    @click.option(
+        "--log_level",
+        type=LOG_LEVELS,
+        default="INFO",
+        help="Optional. Set the logging level",
+    )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
       return func(*args, **kwargs)
@@ -480,6 +486,7 @@ def cli_eval(
     config_file_path: str,
     print_detailed_results: bool,
     eval_storage_uri: Optional[str] = None,
+    log_level: str = "INFO",
 ):
   """Evaluates an agent given the eval sets.
 
@@ -536,6 +543,7 @@ def cli_eval(
   PRINT_DETAILED_RESULTS: Prints detailed results on the console.
   """
   envs.load_dotenv_for_agent(agent_module_file_path, ".")
+  logs.setup_adk_logger(getattr(logging, log_level.upper()))
 
   try:
     from ..evaluation.base_eval_service import InferenceConfig
@@ -549,6 +557,7 @@ def cli_eval(
     from ..evaluation.local_eval_set_results_manager import LocalEvalSetResultsManager
     from ..evaluation.local_eval_sets_manager import load_eval_set_from_file
     from ..evaluation.local_eval_sets_manager import LocalEvalSetsManager
+    from ..evaluation.user_simulator_provider import UserSimulatorProvider
     from .cli_eval import _collect_eval_results
     from .cli_eval import _collect_inferences
     from .cli_eval import get_root_agent
@@ -638,11 +647,16 @@ def cli_eval(
           )
       )
 
+  user_simulator_provider = UserSimulatorProvider(
+      user_simulator_config=eval_config.user_simulator_config
+  )
+
   try:
     eval_service = LocalEvalService(
         root_agent=root_agent,
         eval_sets_manager=eval_sets_manager,
         eval_set_results_manager=eval_set_results_manager,
+        user_simulator_provider=user_simulator_provider,
     )
 
     inference_results = asyncio.run(
@@ -710,10 +724,12 @@ def cli_create_eval_set(
     agent_module_file_path: str,
     eval_set_id: str,
     eval_storage_uri: Optional[str] = None,
+    log_level: str = "INFO",
 ):
   """Creates an empty EvalSet given the agent_module_file_path and eval_set_id."""
   from .cli_eval import get_eval_sets_manager
 
+  logs.setup_adk_logger(getattr(logging, log_level.upper()))
   app_name = os.path.basename(agent_module_file_path)
   agents_dir = os.path.dirname(agent_module_file_path)
   eval_sets_manager = get_eval_sets_manager(eval_storage_uri, agents_dir)
@@ -748,10 +764,8 @@ def cli_create_eval_set(
     type=click.Path(
         exists=True, dir_okay=False, file_okay=True, resolve_path=True
     ),
-    help=(
-        "Optional. Path to session file containing SessionInput in JSON format."
-    ),
-    default=None,
+    help="Path to session file containing SessionInput in JSON format.",
+    required=True,
 )
 @eval_options()
 def cli_add_eval_case(
@@ -760,6 +774,7 @@ def cli_add_eval_case(
     scenarios_file: str,
     eval_storage_uri: Optional[str] = None,
     session_input_file: Optional[str] = None,
+    log_level: str = "INFO",
 ):
   """Adds eval cases to the given eval set.
 
@@ -768,6 +783,7 @@ def cli_add_eval_case(
 
   If an eval case for the generated id already exists, then we skip adding it.
   """
+  logs.setup_adk_logger(getattr(logging, log_level.upper()))
   try:
     from ..evaluation.conversation_scenarios import ConversationScenarios
     from ..evaluation.eval_case import EvalCase
@@ -781,10 +797,8 @@ def cli_add_eval_case(
   eval_sets_manager = get_eval_sets_manager(eval_storage_uri, agents_dir)
 
   try:
-    session_input = None
-    if session_input_file:
-      with open(session_input_file, "r") as f:
-        session_input = SessionInput.model_validate_json(f.read())
+    with open(session_input_file, "r") as f:
+      session_input = SessionInput.model_validate_json(f.read())
 
     with open(scenarios_file, "r") as f:
       conversation_scenarios = ConversationScenarios.model_validate_json(
@@ -1026,6 +1040,17 @@ def fast_api_common_options():
         ),
         multiple=True,
     )
+    @click.option(
+        "--url_prefix",
+        type=str,
+        help=(
+            "Optional. URL path prefix when the application is mounted behind a"
+            " reverse proxy or API gateway (e.g., '/api/v1', '/adk'). This"
+            " ensures generated URLs and redirects work correctly when the app"
+            " is not served at the root path. Must start with '/' if provided."
+        ),
+        default=None,
+    )
     @functools.wraps(func)
     @click.pass_context
     def wrapper(ctx, *args, **kwargs):
@@ -1063,6 +1088,7 @@ def cli_web(
     allow_origins: Optional[list[str]] = None,
     host: str = "127.0.0.1",
     port: int = 8000,
+    url_prefix: Optional[str] = None,
     trace_to_cloud: bool = False,
     otel_to_cloud: bool = False,
     reload: bool = True,
@@ -1126,6 +1152,7 @@ def cli_web(
       a2a=a2a,
       host=host,
       port=port,
+      url_prefix=url_prefix,
       reload_agents=reload_agents,
       extra_plugins=extra_plugins,
       logo_text=logo_text,
@@ -1162,6 +1189,7 @@ def cli_api_server(
     allow_origins: Optional[list[str]] = None,
     host: str = "127.0.0.1",
     port: int = 8000,
+    url_prefix: Optional[str] = None,
     trace_to_cloud: bool = False,
     otel_to_cloud: bool = False,
     reload: bool = True,
@@ -1201,6 +1229,7 @@ def cli_api_server(
           a2a=a2a,
           host=host,
           port=port,
+          url_prefix=url_prefix,
           reload_agents=reload_agents,
           extra_plugins=extra_plugins,
       ),

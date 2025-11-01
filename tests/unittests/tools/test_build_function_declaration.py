@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from enum import Enum
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -24,6 +25,7 @@ from google.genai import types
 # from crewai_tools import FileReadTool
 from pydantic import BaseModel
 from pydantic import Field
+import pytest
 
 
 def test_string_input():
@@ -257,6 +259,33 @@ def test_list():
   assert function_decl.parameters.properties['input_str'].items.type == 'STRING'
   assert function_decl.parameters.properties['input_dir'].type == 'ARRAY'
   assert function_decl.parameters.properties['input_dir'].items.type == 'OBJECT'
+
+
+def test_enums():
+  class InputEnum(Enum):
+    AGENT = 'agent'
+    TOOL = 'tool'
+
+  def simple_function(input: InputEnum = InputEnum.AGENT):
+    return input.value
+
+  function_decl = _automatic_function_calling_util.build_function_declaration(
+      func=simple_function
+  )
+
+  assert function_decl.name == 'simple_function'
+  assert function_decl.parameters.type == 'OBJECT'
+  assert function_decl.parameters.properties['input'].type == 'STRING'
+  assert function_decl.parameters.properties['input'].default == 'agent'
+  assert function_decl.parameters.properties['input'].enum == ['agent', 'tool']
+
+  def simple_function_with_wrong_enum(input: InputEnum = 'WRONG_ENUM'):
+    return input.value
+
+  with pytest.raises(ValueError):
+    _automatic_function_calling_util.build_function_declaration(
+        func=simple_function_with_wrong_enum
+    )
 
 
 def test_basemodel_list():
