@@ -14,6 +14,7 @@
 
 from typing import Dict
 from typing import List
+from typing import Optional
 
 from google.adk.tools import _automatic_function_calling_util
 from google.adk.tools.tool_context import ToolContext
@@ -22,6 +23,7 @@ from google.genai import types
 # TODO: crewai requires python 3.10 as minimum
 # from crewai_tools import FileReadTool
 from pydantic import BaseModel
+from pydantic import Field
 
 
 def test_string_input():
@@ -152,33 +154,70 @@ def test_basemodel():
 
 
 def test_nested_basemodel_input():
+  """Test nested Pydantic models with and without Field annotations."""
+
   class ChildInput(BaseModel):
-    input_str: str
+    name: str = Field(description='The name of the child')
+    age: int  # No Field annotation
+    nickname: Optional[str] = Field(
+        default=None, description='Optional nickname'
+    )
 
-  class CustomInput(BaseModel):
-    child: ChildInput
+  class ParentInput(BaseModel):
+    title: str = Field(description='The title of the parent')
+    basic_field: str  # No Field annotation
+    child: ChildInput = Field(description='Child information')
+    optional_field: Optional[str] = Field(
+        default='default_value', description='An optional field with default'
+    )
 
-  def simple_function(input: CustomInput) -> str:
+  def simple_function(input: ParentInput) -> str:
     return {'result': input}
 
   function_decl = _automatic_function_calling_util.build_function_declaration(
       func=simple_function
   )
 
+  # Check top-level structure
   assert function_decl.name == 'simple_function'
   assert function_decl.parameters.type == 'OBJECT'
   assert function_decl.parameters.properties['input'].type == 'OBJECT'
+
+  # Check ParentInput properties with and without Field annotations
+  parent_props = function_decl.parameters.properties['input'].properties
+  assert parent_props['title'].type == 'STRING'
+  assert parent_props['title'].description == 'The title of the parent'
+  assert parent_props['basic_field'].type == 'STRING'
+  assert parent_props['basic_field'].description is None  # No Field annotation
+  assert parent_props['child'].type == 'OBJECT'
+  assert parent_props['child'].description == 'Child information'
+  assert parent_props['optional_field'].type == 'STRING'
   assert (
-      function_decl.parameters.properties['input'].properties['child'].type
-      == 'OBJECT'
+      parent_props['optional_field'].description
+      == 'An optional field with default'
   )
-  assert (
-      function_decl.parameters.properties['input']
-      .properties['child']
-      .properties['input_str']
-      .type
-      == 'STRING'
-  )
+
+  # Check ParentInput required fields
+  parent_required = function_decl.parameters.properties['input'].required
+  assert 'title' in parent_required
+  assert 'basic_field' in parent_required
+  assert 'child' in parent_required
+  assert 'optional_field' not in parent_required  # Has default value
+
+  # Check ChildInput properties with and without Field annotations
+  child_props = parent_props['child'].properties
+  assert child_props['name'].type == 'STRING'
+  assert child_props['name'].description == 'The name of the child'
+  assert child_props['age'].type == 'INTEGER'
+  assert child_props['age'].description is None  # No Field annotation
+  assert child_props['nickname'].type == 'STRING'
+  assert child_props['nickname'].description == 'Optional nickname'
+
+  # Check ChildInput required fields
+  child_required = parent_props['child'].required
+  assert 'name' in child_required
+  assert 'age' in child_required
+  assert 'nickname' not in child_required  # Optional with default None
 
 
 def test_basemodel_with_nested_basemodel():
