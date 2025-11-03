@@ -36,27 +36,27 @@ class UserModel(pydantic.BaseModel):
 class PreferencesModel(pydantic.BaseModel):
   """Test Pydantic model for preferences."""
 
-  theme: str = "light"
+  theme: str = 'light'
   notifications: bool = True
 
 
 def sync_function_with_pydantic_model(user: UserModel) -> dict:
   """Sync function that takes a Pydantic model."""
   return {
-      "name": user.name,
-      "age": user.age,
-      "email": user.email,
-      "type": str(type(user).__name__),
+      'name': user.name,
+      'age': user.age,
+      'email': user.email,
+      'type': str(type(user).__name__),
   }
 
 
 async def async_function_with_pydantic_model(user: UserModel) -> dict:
   """Async function that takes a Pydantic model."""
   return {
-      "name": user.name,
-      "age": user.age,
-      "email": user.email,
-      "type": str(type(user).__name__),
+      'name': user.name,
+      'age': user.age,
+      'email': user.email,
+      'type': str(type(user).__name__),
   }
 
 
@@ -65,14 +65,14 @@ def function_with_optional_pydantic_model(
 ) -> dict:
   """Function with required and optional Pydantic models."""
   result = {
-      "user_name": user.name,
-      "user_type": str(type(user).__name__),
+      'user_name': user.name,
+      'user_type': str(type(user).__name__),
   }
   if preferences:
     result.update({
-        "theme": preferences.theme,
-        "notifications": preferences.notifications,
-        "preferences_type": str(type(preferences).__name__),
+        'theme': preferences.theme,
+        'notifications': preferences.notifications,
+        'preferences_type': str(type(preferences).__name__),
     })
   return result
 
@@ -82,10 +82,10 @@ def function_with_mixed_args(
 ) -> dict:
   """Function with mixed argument types including Pydantic model."""
   return {
-      "name": name,
-      "user_name": user.name,
-      "user_type": str(type(user).__name__),
-      "count": count,
+      'name': name,
+      'user_name': user.name,
+      'user_type': str(type(user).__name__),
+      'count': count,
   }
 
 
@@ -94,18 +94,18 @@ def test_preprocess_args_with_dict_to_pydantic_conversion():
   tool = FunctionTool(sync_function_with_pydantic_model)
 
   input_args = {
-      "user": {"name": "Alice", "age": 30, "email": "alice@example.com"}
+      'user': {'name': 'Alice', 'age': 30, 'email': 'alice@example.com'}
   }
 
   processed_args = tool._preprocess_args(input_args)
 
   # Check that the dict was converted to a Pydantic model
-  assert "user" in processed_args
-  user = processed_args["user"]
+  assert 'user' in processed_args
+  user = processed_args['user']
   assert isinstance(user, UserModel)
-  assert user.name == "Alice"
+  assert user.name == 'Alice'
   assert user.age == 30
-  assert user.email == "alice@example.com"
+  assert user.email == 'alice@example.com'
 
 
 def test_preprocess_args_with_existing_pydantic_model():
@@ -113,33 +113,33 @@ def test_preprocess_args_with_existing_pydantic_model():
   tool = FunctionTool(sync_function_with_pydantic_model)
 
   # Create an existing Pydantic model
-  existing_user = UserModel(name="Bob", age=25)
-  input_args = {"user": existing_user}
+  existing_user = UserModel(name='Bob', age=25)
+  input_args = {'user': existing_user}
 
   processed_args = tool._preprocess_args(input_args)
 
   # Check that the existing model was not changed (same object)
-  assert "user" in processed_args
-  user = processed_args["user"]
+  assert 'user' in processed_args
+  user = processed_args['user']
   assert user is existing_user
   assert isinstance(user, UserModel)
-  assert user.name == "Bob"
+  assert user.name == 'Bob'
 
 
 def test_preprocess_args_with_optional_pydantic_model_none():
   """Test _preprocess_args handles None for optional Pydantic models."""
   tool = FunctionTool(function_with_optional_pydantic_model)
 
-  input_args = {"user": {"name": "Charlie", "age": 35}, "preferences": None}
+  input_args = {'user': {'name': 'Charlie', 'age': 35}, 'preferences': None}
 
   processed_args = tool._preprocess_args(input_args)
 
   # Check user conversion
-  assert isinstance(processed_args["user"], UserModel)
-  assert processed_args["user"].name == "Charlie"
+  assert isinstance(processed_args['user'], UserModel)
+  assert processed_args['user'].name == 'Charlie'
 
   # Check preferences remains None
-  assert processed_args["preferences"] is None
+  assert processed_args['preferences'] is None
 
 
 def test_preprocess_args_with_optional_pydantic_model_dict():
@@ -147,19 +147,19 @@ def test_preprocess_args_with_optional_pydantic_model_dict():
   tool = FunctionTool(function_with_optional_pydantic_model)
 
   input_args = {
-      "user": {"name": "Diana", "age": 28},
-      "preferences": {"theme": "dark", "notifications": False},
+      'user': {'name': 'Diana', 'age': 28},
+      'preferences': {'theme': 'dark', 'notifications': False},
   }
 
   processed_args = tool._preprocess_args(input_args)
 
   # Check both conversions
-  assert isinstance(processed_args["user"], UserModel)
-  assert processed_args["user"].name == "Diana"
+  assert isinstance(processed_args['user'], UserModel)
+  assert processed_args['user'].name == 'Diana'
 
-  assert isinstance(processed_args["preferences"], PreferencesModel)
-  assert processed_args["preferences"].theme == "dark"
-  assert processed_args["preferences"].notifications is False
+  assert isinstance(processed_args['preferences'], PreferencesModel)
+  assert processed_args['preferences'].theme == 'dark'
+  assert processed_args['preferences'].notifications is False
 
 
 def test_preprocess_args_with_mixed_types():
@@ -167,21 +167,21 @@ def test_preprocess_args_with_mixed_types():
   tool = FunctionTool(function_with_mixed_args)
 
   input_args = {
-      "name": "test_name",
-      "user": {"name": "Eve", "age": 40},
-      "count": 10,
+      'name': 'test_name',
+      'user': {'name': 'Eve', 'age': 40},
+      'count': 10,
   }
 
   processed_args = tool._preprocess_args(input_args)
 
   # Check that only Pydantic model was converted
-  assert processed_args["name"] == "test_name"  # string unchanged
-  assert processed_args["count"] == 10  # int unchanged
+  assert processed_args['name'] == 'test_name'  # string unchanged
+  assert processed_args['count'] == 10  # int unchanged
 
   # Check Pydantic model conversion
-  assert isinstance(processed_args["user"], UserModel)
-  assert processed_args["user"].name == "Eve"
-  assert processed_args["user"].age == 40
+  assert isinstance(processed_args['user'], UserModel)
+  assert processed_args['user'].name == 'Eve'
+  assert processed_args['user'].age == 40
 
 
 def test_preprocess_args_with_invalid_data_graceful_failure():
@@ -189,23 +189,23 @@ def test_preprocess_args_with_invalid_data_graceful_failure():
   tool = FunctionTool(sync_function_with_pydantic_model)
 
   # Invalid data that can't be converted to UserModel
-  input_args = {"user": "invalid_string"}  # string instead of dict/model
+  input_args = {'user': 'invalid_string'}  # string instead of dict/model
 
   processed_args = tool._preprocess_args(input_args)
 
   # Should keep original value when conversion fails
-  assert processed_args["user"] == "invalid_string"
+  assert processed_args['user'] == 'invalid_string'
 
 
 def test_preprocess_args_with_non_pydantic_parameters():
   """Test _preprocess_args ignores non-Pydantic parameters."""
 
   def simple_function(name: str, age: int) -> dict:
-    return {"name": name, "age": age}
+    return {'name': name, 'age': age}
 
   tool = FunctionTool(simple_function)
 
-  input_args = {"name": "test", "age": 25}
+  input_args = {'name': 'test', 'age': 25}
   processed_args = tool._preprocess_args(input_args)
 
   # Should remain unchanged (no Pydantic models to convert)
@@ -223,15 +223,15 @@ async def test_run_async_with_pydantic_model_conversion_sync_function():
   invocation_context_mock.session = session_mock
   tool_context_mock.invocation_context = invocation_context_mock
 
-  args = {"user": {"name": "Frank", "age": 45, "email": "frank@example.com"}}
+  args = {'user': {'name': 'Frank', 'age': 45, 'email': 'frank@example.com'}}
 
   result = await tool.run_async(args=args, tool_context=tool_context_mock)
 
   # Verify the function received a proper Pydantic model
-  assert result["name"] == "Frank"
-  assert result["age"] == 45
-  assert result["email"] == "frank@example.com"
-  assert result["type"] == "UserModel"
+  assert result['name'] == 'Frank'
+  assert result['age'] == 45
+  assert result['email'] == 'frank@example.com'
+  assert result['type'] == 'UserModel'
 
 
 @pytest.mark.asyncio
@@ -245,15 +245,15 @@ async def test_run_async_with_pydantic_model_conversion_async_function():
   invocation_context_mock.session = session_mock
   tool_context_mock.invocation_context = invocation_context_mock
 
-  args = {"user": {"name": "Grace", "age": 32}}
+  args = {'user': {'name': 'Grace', 'age': 32}}
 
   result = await tool.run_async(args=args, tool_context=tool_context_mock)
 
   # Verify the function received a proper Pydantic model
-  assert result["name"] == "Grace"
-  assert result["age"] == 32
-  assert result["email"] is None  # default value
-  assert result["type"] == "UserModel"
+  assert result['name'] == 'Grace'
+  assert result['age'] == 32
+  assert result['email'] is None  # default value
+  assert result['type'] == 'UserModel'
 
 
 @pytest.mark.asyncio
@@ -269,26 +269,26 @@ async def test_run_async_with_optional_pydantic_models():
 
   # Test with both required and optional models
   args = {
-      "user": {"name": "Henry", "age": 50},
-      "preferences": {"theme": "dark", "notifications": True},
+      'user': {'name': 'Henry', 'age': 50},
+      'preferences': {'theme': 'dark', 'notifications': True},
   }
 
   result = await tool.run_async(args=args, tool_context=tool_context_mock)
 
-  assert result["user_name"] == "Henry"
-  assert result["user_type"] == "UserModel"
-  assert result["theme"] == "dark"
-  assert result["notifications"] is True
-  assert result["preferences_type"] == "PreferencesModel"
+  assert result['user_name'] == 'Henry'
+  assert result['user_type'] == 'UserModel'
+  assert result['theme'] == 'dark'
+  assert result['notifications'] is True
+  assert result['preferences_type'] == 'PreferencesModel'
 
 
 def function_with_list_of_pydantic_models(users: list[UserModel]) -> dict:
   """Function that takes a list of Pydantic models."""
   return {
-      "count": len(users),
-      "names": [user.name for user in users],
-      "ages": [user.age for user in users],
-      "types": [type(user).__name__ for user in users],
+      'count': len(users),
+      'names': [user.name for user in users],
+      'ages': [user.age for user in users],
+      'types': [type(user).__name__ for user in users],
   }
 
 
@@ -297,10 +297,10 @@ def function_with_optional_list_of_pydantic_models(
 ) -> dict:
   """Function that takes an optional list of Pydantic models."""
   if users is None:
-    return {"count": 0, "names": []}
+    return {'count': 0, 'names': []}
   return {
-      "count": len(users),
-      "names": [user.name for user in users],
+      'count': len(users),
+      'names': [user.name for user in users],
   }
 
 
@@ -309,49 +309,49 @@ def test_preprocess_args_with_list_of_dicts_to_pydantic_models():
   tool = FunctionTool(function_with_list_of_pydantic_models)
 
   input_args = {
-      "users": [
-          {"name": "Alice", "age": 30, "email": "alice@example.com"},
-          {"name": "Bob", "age": 25},
-          {"name": "Charlie", "age": 35, "email": "charlie@example.com"},
+      'users': [
+          {'name': 'Alice', 'age': 30, 'email': 'alice@example.com'},
+          {'name': 'Bob', 'age': 25},
+          {'name': 'Charlie', 'age': 35, 'email': 'charlie@example.com'},
       ]
   }
 
   processed_args = tool._preprocess_args(input_args)
 
   # Check that the list of dicts was converted to a list of Pydantic models
-  assert "users" in processed_args
-  users = processed_args["users"]
+  assert 'users' in processed_args
+  users = processed_args['users']
   assert isinstance(users, list)
   assert len(users) == 3
 
   # Check each element is a Pydantic model with correct data
   assert isinstance(users[0], UserModel)
-  assert users[0].name == "Alice"
+  assert users[0].name == 'Alice'
   assert users[0].age == 30
-  assert users[0].email == "alice@example.com"
+  assert users[0].email == 'alice@example.com'
 
   assert isinstance(users[1], UserModel)
-  assert users[1].name == "Bob"
+  assert users[1].name == 'Bob'
   assert users[1].age == 25
   assert users[1].email is None
 
   assert isinstance(users[2], UserModel)
-  assert users[2].name == "Charlie"
+  assert users[2].name == 'Charlie'
   assert users[2].age == 35
-  assert users[2].email == "charlie@example.com"
+  assert users[2].email == 'charlie@example.com'
 
 
 def test_preprocess_args_with_optional_list_of_pydantic_models_none():
   """Test _preprocess_args handles None for optional list parameter."""
   tool = FunctionTool(function_with_optional_list_of_pydantic_models)
 
-  input_args = {"users": None}
+  input_args = {'users': None}
 
   processed_args = tool._preprocess_args(input_args)
 
   # Check that None is preserved
-  assert "users" in processed_args
-  assert processed_args["users"] is None
+  assert 'users' in processed_args
+  assert processed_args['users'] is None
 
 
 def test_preprocess_args_with_optional_list_of_pydantic_models_with_data():
@@ -359,21 +359,21 @@ def test_preprocess_args_with_optional_list_of_pydantic_models_with_data():
   tool = FunctionTool(function_with_optional_list_of_pydantic_models)
 
   input_args = {
-      "users": [
-          {"name": "Alice", "age": 30},
-          {"name": "Bob", "age": 25},
+      'users': [
+          {'name': 'Alice', 'age': 30},
+          {'name': 'Bob', 'age': 25},
       ]
   }
 
   processed_args = tool._preprocess_args(input_args)
 
   # Check conversion
-  assert "users" in processed_args
-  users = processed_args["users"]
+  assert 'users' in processed_args
+  users = processed_args['users']
   assert len(users) == 2
   assert all(isinstance(user, UserModel) for user in users)
-  assert users[0].name == "Alice"
-  assert users[1].name == "Bob"
+  assert users[0].name == 'Alice'
+  assert users[1].name == 'Bob'
 
 
 def test_preprocess_args_with_list_keeps_invalid_items_as_original():
@@ -381,30 +381,30 @@ def test_preprocess_args_with_list_keeps_invalid_items_as_original():
   tool = FunctionTool(function_with_list_of_pydantic_models)
 
   input_args = {
-      "users": [
-          {"name": "Alice", "age": 30},
-          {"name": "Invalid"},  # Missing required 'age' field
-          {"name": "Bob", "age": 25},
+      'users': [
+          {'name': 'Alice', 'age': 30},
+          {'name': 'Invalid'},  # Missing required 'age' field
+          {'name': 'Bob', 'age': 25},
       ]
   }
 
   processed_args = tool._preprocess_args(input_args)
 
   # Check that all items are preserved
-  assert "users" in processed_args
-  users = processed_args["users"]
+  assert 'users' in processed_args
+  users = processed_args['users']
   assert len(users) == 3  # All items preserved
 
   # First item should be converted to UserModel
   assert isinstance(users[0], UserModel)
-  assert users[0].name == "Alice"
+  assert users[0].name == 'Alice'
   assert users[0].age == 30
 
   # Second item should remain as dict (failed validation)
   assert isinstance(users[1], dict)
-  assert users[1] == {"name": "Invalid"}
+  assert users[1] == {'name': 'Invalid'}
 
   # Third item should be converted to UserModel
   assert isinstance(users[2], UserModel)
-  assert users[2].name == "Bob"
+  assert users[2].name == 'Bob'
   assert users[2].age == 25
