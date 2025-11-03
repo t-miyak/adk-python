@@ -159,8 +159,6 @@ class FunctionTool(BaseTool):
                     # Keep the original value if conversion fails
                     converted_list.append(item)
 
-                converted_args[param_name] = converted_list
-
         # Check if the target type is a Pydantic model
         elif inspect.isclass(target_type) and issubclass(
             target_type, pydantic.BaseModel
