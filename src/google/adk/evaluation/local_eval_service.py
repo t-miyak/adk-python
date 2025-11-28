@@ -28,6 +28,7 @@ from ..agents.base_agent import BaseAgent
 from ..artifacts.base_artifact_service import BaseArtifactService
 from ..artifacts.in_memory_artifact_service import InMemoryArtifactService
 from ..errors.not_found_error import NotFoundError
+from ..memory.base_memory_service import BaseMemoryService
 from ..sessions.base_session_service import BaseSessionService
 from ..sessions.in_memory_session_service import InMemorySessionService
 from ..utils.feature_decorator import experimental
@@ -77,6 +78,7 @@ class LocalEvalService(BaseEvalService):
       eval_set_results_manager: Optional[EvalSetResultsManager] = None,
       session_id_supplier: Callable[[], str] = _get_session_id,
       user_simulator_provider: UserSimulatorProvider = UserSimulatorProvider(),
+      memory_service: Optional[BaseMemoryService] = None,
   ):
     self._root_agent = root_agent
     self._eval_sets_manager = eval_sets_manager
@@ -91,6 +93,7 @@ class LocalEvalService(BaseEvalService):
     self._eval_set_results_manager = eval_set_results_manager
     self._session_id_supplier = session_id_supplier
     self._user_simulator_provider = user_simulator_provider
+    self._memory_service = memory_service
 
   @override
   async def perform_inference(
@@ -209,7 +212,7 @@ class LocalEvalService(BaseEvalService):
 
     # We also keep track of the overall score for a metric, derived from all
     # invocation. For example, if we were keeping track the metric that compares
-    # how well is the final resposne as compared to a golden answer, then each
+    # how well is the final response as compared to a golden answer, then each
     # invocation will have the value of this metric. We will also have an
     # overall score using aggregation strategy across all invocations. This
     # would be the score for the eval case.
@@ -267,7 +270,7 @@ class LocalEvalService(BaseEvalService):
             overall_eval_status=EvalStatus.NOT_EVALUATED
         )
 
-      # Track overall scrore across all invocations.
+      # Track overall score across all invocations.
       eval_metric_result_details = EvalMetricResultDetails(
           rubric_scores=evaluation_result.overall_rubric_scores
       )
@@ -366,8 +369,8 @@ class LocalEvalService(BaseEvalService):
       self, overall_eval_metric_results: list[EvalMetricResult]
   ) -> EvalStatus:
     final_eval_status = EvalStatus.NOT_EVALUATED
-    # Go over the all the eval statuses and mark the final eval status as
-    # passed if all of them pass, otherwise mark the final eval status to
+    # Go over all the eval statuses and mark the final eval status as
+    # passed if all of them pass; otherwise, mark the final eval status to
     # failed.
     for overall_eval_metric_result in overall_eval_metric_results:
       overall_eval_status = overall_eval_metric_result.eval_status
@@ -408,6 +411,7 @@ class LocalEvalService(BaseEvalService):
               session_id=session_id,
               session_service=self._session_service,
               artifact_service=self._artifact_service,
+              memory_service=self._memory_service,
           )
       )
 

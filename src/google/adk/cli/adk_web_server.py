@@ -280,6 +280,17 @@ class ListMetricsInfoResponse(common.BaseModel):
   metrics_info: list[MetricInfo]
 
 
+class AppInfo(common.BaseModel):
+  name: str
+  root_agent_name: str
+  description: str
+  language: Literal["yaml", "python"]
+
+
+class ListAppsResponse(common.BaseModel):
+  apps: list[AppInfo]
+
+
 def _setup_telemetry(
     otel_to_cloud: bool = False,
     internal_exporters: Optional[list[SpanProcessor]] = None,
@@ -396,7 +407,7 @@ class AdkWebServer:
   If you pass in a web_assets_dir, the static assets will be served under
   /dev-ui in addition to the API endpoints created by default.
 
-  You can add add additional API endpoints by modifying the FastAPI app
+  You can add additional API endpoints by modifying the FastAPI app
   instance returned by get_fast_api_app as this class exposes the agent runners
   and most other bits of state retained during the lifetime of the server.
 
@@ -449,7 +460,7 @@ class AdkWebServer:
     self.extra_plugins = extra_plugins or []
     self.logo_text = logo_text
     self.logo_image_url = logo_image_url
-    # Internal propeties we want to allow being modified from callbacks.
+    # Internal properties we want to allow being modified from callbacks.
     self.runners_to_clean: set[str] = set()
     self.current_app_name_ref: SharedValue[str] = SharedValue(value="")
     self.runner_dict = {}
@@ -699,7 +710,14 @@ class AdkWebServer:
       )
 
     @app.get("/list-apps")
-    async def list_apps() -> list[str]:
+    async def list_apps(
+        detailed: bool = Query(
+            default=False, description="Return detailed app information"
+        )
+    ) -> list[str] | ListAppsResponse:
+      if detailed:
+        apps_info = self.agent_loader.list_agents_detailed()
+        return ListAppsResponse(apps=[AppInfo(**app) for app in apps_info])
       return self.agent_loader.list_agents()
 
     @app.get("/debug/trace/{event_id}", tags=[TAG_DEBUG])

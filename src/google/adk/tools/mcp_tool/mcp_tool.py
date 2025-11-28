@@ -30,9 +30,11 @@ from google.genai.types import FunctionDeclaration
 from typing_extensions import override
 
 from ...agents.readonly_context import ReadonlyContext
+from ...features import FeatureName
+from ...features import is_feature_enabled
 from .._gemini_schema_util import _to_gemini_schema
 from .mcp_session_manager import MCPSessionManager
-from .mcp_session_manager import retry_on_closed_resource
+from .mcp_session_manager import retry_on_errors
 
 # Attempt to import MCP Tool from the MCP library, and hints user to upgrade
 # their Python version to 3.10 if it fails.
@@ -120,15 +122,21 @@ class McpTool(BaseAuthenticatedTool):
         FunctionDeclaration: The Gemini function declaration for the tool.
     """
     input_schema = self._mcp_tool.inputSchema
-    parameters = _to_gemini_schema(input_schema)
     output_schema = self._mcp_tool.outputSchema
-    response = _to_gemini_schema(output_schema)
-    function_decl = FunctionDeclaration(
-        name=self.name,
-        description=self.description,
-        parameters=parameters,
-        response=response,
-    )
+    if is_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL):
+      function_decl = FunctionDeclaration(
+          name=self.name,
+          description=self.description,
+          parameters_json_schema=input_schema,
+          response_json_schema=output_schema,
+      )
+    else:
+      parameters = _to_gemini_schema(input_schema)
+      function_decl = FunctionDeclaration(
+          name=self.name,
+          description=self.description,
+          parameters=parameters,
+      )
     return function_decl
 
   @property
@@ -143,7 +151,7 @@ class McpTool(BaseAuthenticatedTool):
 
     # Functions are callable objects, but not all callable objects are functions
     # checking coroutine function is not enough. We also need to check whether
-    # Callable's __call__ function is a coroutine funciton
+    # Callable's __call__ function is a coroutine function
     is_async = inspect.iscoroutinefunction(target) or (
         hasattr(target, "__call__")
         and inspect.iscoroutinefunction(target.__call__)
@@ -187,7 +195,7 @@ class McpTool(BaseAuthenticatedTool):
         return {"error": "This tool call is rejected."}
     return await super().run_async(args=args, tool_context=tool_context)
 
-  @retry_on_closed_resource
+  @retry_on_errors
   @override
   async def _run_async_impl(
       self, *, args, tool_context: ToolContext, credential: AuthCredential

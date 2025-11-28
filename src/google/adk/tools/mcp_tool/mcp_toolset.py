@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sys
 from typing import Callable
@@ -36,7 +37,7 @@ from ..base_toolset import ToolPredicate
 from ..tool_configs import BaseToolConfig
 from ..tool_configs import ToolArgsConfig
 from .mcp_session_manager import MCPSessionManager
-from .mcp_session_manager import retry_on_closed_resource
+from .mcp_session_manager import retry_on_errors
 from .mcp_session_manager import SseConnectionParams
 from .mcp_session_manager import StdioConnectionParams
 from .mcp_session_manager import StreamableHTTPConnectionParams
@@ -154,7 +155,7 @@ class McpToolset(BaseToolset):
     self._auth_credential = auth_credential
     self._require_confirmation = require_confirmation
 
-  @retry_on_closed_resource
+  @retry_on_errors
   async def get_tools(
       self,
       readonly_context: Optional[ReadonlyContext] = None,
@@ -177,7 +178,17 @@ class McpToolset(BaseToolset):
     session = await self._mcp_session_manager.create_session(headers=headers)
 
     # Fetch available tools from the MCP server
-    tools_response: ListToolsResult = await session.list_tools()
+    timeout_in_seconds = (
+        self._connection_params.timeout
+        if hasattr(self._connection_params, "timeout")
+        else None
+    )
+    try:
+      tools_response: ListToolsResult = await asyncio.wait_for(
+          session.list_tools(), timeout=timeout_in_seconds
+      )
+    except Exception as e:
+      raise ConnectionError("Failed to get tools from MCP server.") from e
 
     # Apply filtering based on context and tool_filter
     tools = []
